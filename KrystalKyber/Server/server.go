@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	dilithium "github.com/g-utils/crystals-go/dilithium"
-	kyber "github.com/g-utils/crystals-go/kyber"
+	"github.com/g-utils/crystals-go/dilithium"
+	"github.com/g-utils/crystals-go/kyber"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 )
@@ -119,12 +122,12 @@ func handleClient(conn net.Conn) {
 }
 
 // loadClientCAs loads the CA certificates used to verify client certificates.
-func loadClientCAs() *x509.CertPool {
+func loadCACert() *x509.CertPool {
 	caCertPool := x509.NewCertPool()
 
 	// Read in the CA certificate file.
 	// Replace 'ca-certificates.crt' with the path to your CA certificate file.
-	caCert, err := ioutil.ReadFile("C:\\Users\\Bryan\\Documents\\crypto\\KrystalKyber\\Certs\\ca-cert.pem")
+	caCert, err := ioutil.ReadFile("C:\\Users\\Bryan\\Documents\\School\\Kyber-Mess\\KrystalKyber\\CA-Server\\caCert.pem")
 	if err != nil {
 		log.Fatalf("Could not read CA certificate: %s", err)
 	}
@@ -137,11 +140,68 @@ func loadClientCAs() *x509.CertPool {
 	return caCertPool
 }
 
-func main() {
-	// Load server certificate and private key
-	cert, err := tls.LoadX509KeyPair("C:\\Users\\Bryan\\Documents\\crypto\\KrystalKyber\\Certs\\server.crt", "C:\\Users\\Bryan\\Documents\\crypto\\KrystalKyber\\Certs\\server.key")
+func sendCSRToCA(csrBytes []byte) ([]byte, error) {
+	caCertPool := loadCACert()
+
+	// Setup TLS configuration with the CA certificate
+	tlsConfig := &tls.Config{
+		RootCAs: caCertPool,
+	}
+
+	// Create an HTTP client that uses this TLS configuration
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	caServerURL := "https://127.0.0.1:8084/sign-csr"
+
+	resp, err := client.Post(caServerURL, "application/pem-certificate-chain", bytes.NewReader(csrBytes))
 	if err != nil {
-		fmt.Println("Error loading server certificate and private key:", err.Error())
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
+
+	signedCertBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedCertBytes, nil
+}
+
+func main() {
+	// Read the CSR from a file
+	csrBytes, err := ioutil.ReadFile("C:\\Users\\Bryan\\Documents\\School\\Kyber-Mess\\KrystalKyber\\Server\\server.csr")
+	if err != nil {
+		log.Fatalf("Failed to read CSR: %v", err)
+	}
+
+	// Send the CSR to the CA and get the signed certificate
+	signedCertBytes, err := sendCSRToCA(csrBytes)
+	if err != nil {
+		log.Fatalf("Failed to get signed certificate from CA: %v", err)
+	}
+
+	// Write the signed certificate to a file
+	err = ioutil.WriteFile("C:\\Users\\Bryan\\Documents\\School\\Kyber-Mess\\KrystalKyber\\Server\\signed-server.crt", signedCertBytes, 0644)
+	if err != nil {
+		log.Fatalf("Failed to write signed certificate: %v", err)
+	}
+
+	// Load the CA certificate for client certificate verification
+	clientCACertPool := loadCACert()
+
+	// Load the signed certificate and private key for TLS
+	cert, err := tls.LoadX509KeyPair("C:\\Users\\Bryan\\Documents\\School\\Kyber-Mess\\KrystalKyber\\Server\\signed-server.crt", "C:\\Users\\Bryan\\Documents\\School\\Kyber-Mess\\KrystalKyber\\Server\\server.key")
+	if err != nil {
+		log.Fatalf("Failed to load key pair: %v", err)
 		return
 	}
 
@@ -149,11 +209,11 @@ func main() {
 	config := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    loadClientCAs(), // Function to load CA pool
+		ClientCAs:    clientCACertPool,
 		MinVersion:   tls.VersionTLS12,
 	}
 
-	ln, err := tls.Listen("tcp", ":8081", config)
+	ln, err := tls.Listen("tcp", ":8080", config)
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		return
