@@ -72,10 +72,16 @@ func handleClient(conn net.Conn) {
 	for {
 		var msg Message
 		if err := reader.Decode(&msg); err != nil {
-			fmt.Println("Error decoding message:", err.Error())
-			break
+			if err == io.EOF {
+				log.Println("Connection closed by client")
+				break
+			}
+			log.Printf("Error decoding message: %v, Raw data: %v", err, msg)
+			continue
 		}
 
+		// Log the received message for debugging
+		log.Printf("Received message: %+v", msg)
 		// Trim leading and trailing whitespaces from message content
 		msg.Content = strings.TrimSpace(msg.Content)
 
@@ -97,21 +103,22 @@ func handleClient(conn net.Conn) {
 		mutex.Lock()
 		if recipient, ok := clients[conn]; ok {
 			mutex.Unlock()
+
 			// Serialize and send the message back to the sender (echo server)
 			messageJSON, err := json.Marshal(msg)
 			if err != nil {
-				fmt.Println("Error serializing message:", err.Error())
+				log.Printf("Error serializing message: %v", err)
 				continue
 			}
-
-			_, err = recipient.Conn.Write(messageJSON)
+			// Append a newline character to indicate the end of the message
+			_, err = recipient.Conn.Write(append(messageJSON, '\n'))
 			if err != nil {
-				fmt.Println("Error forwarding message:", err.Error())
+				log.Printf("Error forwarding message: %v", err)
 				continue
 			}
 		} else {
 			mutex.Unlock()
-			fmt.Println("Recipient not found:", msg.To)
+			log.Println("Recipient not found:", msg.To)
 		}
 	}
 

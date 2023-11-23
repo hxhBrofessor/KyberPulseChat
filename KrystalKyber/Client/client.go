@@ -120,13 +120,13 @@ func main() {
 	// Connect to the server using TLS
 	conn, err := tls.Dial("tcp", "localhost:8080", tlsConfig)
 	if err != nil {
-		fmt.Println("Error establishing TLS connection:", err.Error())
+		log.Printf("Error establishing TLS connection: %v", err)
 		os.Exit(1)
 	}
 	defer func(conn *tls.Conn) {
 		err := conn.Close()
 		if err != nil {
-
+			log.Printf("Error closing connection: %v", err)
 		}
 	}(conn)
 
@@ -177,14 +177,14 @@ func main() {
 		// Serialize the message to JSON and send it to the server
 		messageJSON, err := json.Marshal(msg)
 		if err != nil {
-			fmt.Println("Error serializing message:", err.Error())
+			log.Printf("Error serializing message: %v", err)
 			continue
 		}
 
 		// Send the message with a newline character to indicate the end of the message
 		_, err = conn.Write(append(messageJSON, '\n'))
 		if err != nil {
-			fmt.Println("Error sending message:", err.Error())
+			log.Printf("Error sending message: %v", err)
 			return
 		}
 	}
@@ -195,26 +195,22 @@ func handleIncomingMessages(conn net.Conn, dilithiumInstance *dilithium.Dilithiu
 	for {
 		messageBytes, err := reader.ReadBytes('\n')
 		if err != nil {
-			fmt.Println("Error reading:", err.Error())
+			log.Printf("Error reading: %v", err)
 			return
 		}
 
-		// Deserialize the received message
+		// Log raw data for debugging
+		log.Printf("Raw data received: %s", string(messageBytes))
+
 		var msg Message
 		err = json.Unmarshal(messageBytes, &msg)
 		if err != nil {
-			fmt.Println("Error unmarshalling message:", err.Error())
+			log.Printf("Error unmarshalling message: %v, Raw data: %s", err, string(messageBytes))
 			continue
 		}
 
-		// Optionally, verify the message signature using Dilithium
-		verified := dilithiumInstance.Verify([]byte(msg.Signature), []byte(msg.Content), nil)
-		if !verified {
-			fmt.Println("Signature verification failed for message from", msg.From)
-			continue
-
-		}
-
-		fmt.Println("Received message from", msg.From, ":", msg.Content)
+		// Log the decoded message
+		log.Printf("Received message: %+v", msg)
+		// Additional code for handling the received message...
 	}
 }
