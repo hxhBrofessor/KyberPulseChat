@@ -81,13 +81,11 @@ go run 1338Client.go
 2. Launch both clients in separate terminals.
 3. Follow the client prompts to exchange keys and send encrypted messages.
 
-## Demo Video
+## Demo
 You can view a demonstration of KyberPulseChat in action by clicking the link below:
 
-<video controls>
-  <source src="https://github.com/hxhBrofessor/KyberPulseChat/raw/refs/heads/main/media/demo.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+![KyberPulseChat PoC](https://github.com/hxhBrofessor/KyberPulseChat/raw/main/media/poc_screenshot.png)
+
 
 ## Security Considerations
 - **Man-in-the-Middle Attacks**: Mitigation strategies include using hybrid systems or rolling keys.
