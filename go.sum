@@ -1,0 +1,12 @@
+github.com/acheong08/crystallize v0.0.0-20230328161609-48d5c03dab83 h1:tKXV3zYm4QtwVPdXLHVKOUlx6qg+QHf+4FodF2syOKU=
+github.com/acheong08/crystallize v0.0.0-20230328161609-48d5c03dab83/go.mod h1:nY2HQwA9rPUI0qBhHI4hU3ZnapLJN9WVn3/PCJwWhJo=
+github.com/acheong08/crystals-go v0.0.0-20221113173009-20f37d186766 h1:SivOaKka46JOVHKBVh1iUxCvuHQmVVdYM+7lwsZ7lNM=
+github.com/acheong08/crystals-go v0.0.0-20221113173009-20f37d186766/go.mod h1:bGOBCYp4Rbac3haOe4f2IM03aw6Z303KGMfcBoQdZrc=
+github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=
+github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
+golang.org/x/crypto v0.14.0 h1:wBqGXzWJW6m1XrIKlAH0Hs1JJ7+9KBwnIO8v66Q9cHc=
+golang.org/x/crypto v0.14.0/go.mod h1:MVFd36DqK4CsrnJYDkBA3VC4m2GkXAM0PvzMCn4JQf4=
+golang.org/x/net v0.17.0 h1:pVaXccu2ozPjCXewfr1S7xza/zcXTity9cCdXQYSjIM=
+golang.org/x/net v0.17.0/go.mod h1:NxSsAGuq816PNPmqtQdLE42eU2Fs7NoRIZrHJAlaCOE=
+golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=
+golang.org/x/sys v0.13.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
