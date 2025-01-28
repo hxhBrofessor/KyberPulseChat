@@ -84,7 +84,10 @@ go run 1338Client.go
 ## Demo Video
 You can view a demonstration of KyberPulseChat in action by clicking the link below:
 
-[![KyberPulseChat Demo](.media/demo.mp4)
+<video controls>
+  <source src="https://github.com/hxhBrofessor/KyberPulseChat/raw/refs/heads/main/media/demo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ## Security Considerations
 - **Man-in-the-Middle Attacks**: Mitigation strategies include using hybrid systems or rolling keys.

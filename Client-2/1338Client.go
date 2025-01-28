@@ -15,18 +15,18 @@ import (
 
 // Message struct defines the format of messages sent between clients and the server
 type Message struct {
-	Sender    string `json:"sender"`
-	Content   string `json:"content"`
-	Timestamp int64  `json:"timestamp"`
-	Type      string `json:"type"` // Types: "keyExchange", "message", "keyResponse", "keyRequest"
-	PublicKey string `json:"publicKey"`
-	Recipient string `json:"recipient"`
+	Sender    string `json:"sender"`    // The name of the sender
+	Content   string `json:"content"`   // The encrypted or plain content of the message
+	Timestamp int64  `json:"timestamp"` // Unix timestamp of when the message was sent
+	Type      string `json:"type"`      // Message type: "keyExchange", "message", "keyResponse", "keyRequest"
+	PublicKey string `json:"publicKey"` // The sender's public key (used for key exchange)
+	Recipient string `json:"recipient"` // The intended recipient of the message
 }
 
 // otherPublicKeys stores public keys of other clients
 var (
 	otherPublicKeys = make(map[string]string) // Map to store other clients' public keys
-	keyMutex        = sync.Mutex{}
+	keyMutex        = sync.Mutex{}            // Mutex for thread-safe access to the public key map
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 	startClient("gojo", "localhost:8089", pubKey, privKey)
 }
 
-// startClient establishes a WebSocket connection, performs key exchange, and handles message sending and receiving
+// startClient establishes a WebSocket connection, performs key exchange, and handles message sending/receiving
 func startClient(sender, serverAddr string, pubKey, privKey []byte) {
 	// Establish a WebSocket connection to the server
 	conn, _, err := websocket.DefaultDialer.Dial("ws://"+serverAddr+"/ws", nil)
@@ -45,48 +45,50 @@ func startClient(sender, serverAddr string, pubKey, privKey []byte) {
 		return
 	}
 	defer func(conn *websocket.Conn) {
+		// Close the connection when the function exits
 		err := conn.Close()
 		if err != nil {
-			// Handle any errors when closing the connection
+			fmt.Println("Error closing connection:", err)
 		}
 	}(conn)
 
 	// Send a key exchange message to the server to share the client's public key
 	keyExchangeMsg := Message{
 		Sender:    sender,
-		PublicKey: base64.StdEncoding.EncodeToString(pubKey),
+		PublicKey: base64.StdEncoding.EncodeToString(pubKey), // Encode the public key to base64
 		Type:      "keyExchange",
 	}
-	err = conn.WriteJSON(keyExchangeMsg)
+	err = conn.WriteJSON(keyExchangeMsg) // Send the key exchange message as JSON
 	if err != nil {
 		fmt.Println("Error sending key exchange message:", err)
 		return
 	}
 
-	reader := bufio.NewReader(os.Stdin)
+	// Start a goroutine to handle incoming messages
 	go handleIncomingMessages(conn, privKey)
 
+	reader := bufio.NewReader(os.Stdin) // Use stdin to read user input
 	for {
-		// Read recipient's name from the console
+		// Prompt the user for the recipient's name
 		fmt.Print("Enter recipient's name: ")
 		recipient, _ := reader.ReadString('\n')
 		recipient = strings.TrimSpace(recipient)
 
-		// Request public key of recipient and wait for response
+		// Request the public key of the recipient from the server
 		requestPublicKey(conn, sender, recipient)
-		waitForPublicKey(recipient)
+		waitForPublicKey(recipient) // Wait until the recipient's public key is available
 
-		// Read the message from the console
+		// Prompt the user for the message content
 		fmt.Print("Enter your message: ")
 		messageContent, _ := reader.ReadString('\n')
 		messageContent = strings.TrimSpace(messageContent)
 
-		// Send the encrypted message to the recipient
+		// Encrypt and send the message to the recipient
 		sendMessage(conn, sender, recipient, messageContent)
 	}
 }
 
-// waitForPublicKey waits for the public key of the recipient to become available
+// waitForPublicKey waits until the public key of the recipient is available
 func waitForPublicKey(recipient string) {
 	fmt.Printf("Waiting for public key of %s\n", recipient)
 	for {
@@ -95,42 +97,45 @@ func waitForPublicKey(recipient string) {
 		keyMutex.Unlock()
 
 		if exists {
-			break
+			break // Exit the loop when the key is available
 		}
 
-		time.Sleep(100 * time.Millisecond) // Wait for a short duration before checking again
+		time.Sleep(100 * time.Millisecond) // Wait briefly before checking again
 	}
 }
 
-// handleIncomingMessages handles incoming messages from the server, including decrypting and displaying messages
+// handleIncomingMessages handles incoming messages from the server
 func handleIncomingMessages(conn *websocket.Conn, privKey []byte) {
 	for {
 		var receivedMessage Message
+		// Read a JSON message from the server
 		err := conn.ReadJSON(&receivedMessage)
 		if err != nil {
 			fmt.Println("Error reading message:", err)
 			break
 		}
 
+		// Handle the received message based on its type
 		switch receivedMessage.Type {
 		case "keyResponse":
 			handlePublicKeyResponse(receivedMessage)
 
 		case "message":
-			// Assuming message content is encrypted and base64 encoded
+			// Decode the base64-encoded message content
 			decodedMessage, err := base64.StdEncoding.DecodeString(receivedMessage.Content)
 			if err != nil {
 				fmt.Println("Failed to decode message:", err)
 				continue
 			}
 
-			// Decrypt the received message using the client's private key
+			// Decrypt the message using the private key
 			decryptedMessage := security.Decrypt(privKey, string(decodedMessage))
 			if decryptedMessage == "" {
 				fmt.Println("Failed to decrypt message or message is empty")
 				continue
 			}
 
+			// Display the decrypted message to the user
 			fmt.Printf("\rReceived message from %s: %s\n", receivedMessage.Sender, decryptedMessage)
 			fmt.Print("Enter a message: ")
 		}
@@ -140,7 +145,7 @@ func handleIncomingMessages(conn *websocket.Conn, privKey []byte) {
 // sendMessage encrypts and sends a message to the recipient
 func sendMessage(conn *websocket.Conn, sender, recipient, content string) {
 	keyMutex.Lock()
-	recipientPublicKeyEncoded, exists := otherPublicKeys[recipient]
+	recipientPublicKeyEncoded, exists := otherPublicKeys[recipient] // Get the recipient's public key
 	keyMutex.Unlock()
 
 	if !exists {
@@ -148,21 +153,19 @@ func sendMessage(conn *websocket.Conn, sender, recipient, content string) {
 		return
 	}
 
-	// Decode the base64-encoded public key
+	// Decode the recipient's public key from base64
 	recipientPublicKey, err := base64.StdEncoding.DecodeString(recipientPublicKeyEncoded)
 	if err != nil {
 		fmt.Println("Error decoding public key:", err)
 		return
 	}
 
-	fmt.Printf("Encrypting message using public key: %s\n", recipientPublicKey)
-
-	// Encrypt the message using the decoded public key
-	// Adjust based on the actual return type of security.Encrypt.
-	// Assuming it returns a string encrypted message.
+	// Encrypt the message using the recipient's public key
 	encryptedMessage := security.Encrypt(recipientPublicKey, content)
-
+	// Encode the encrypted message to base64 for transmission
 	encodedMessage := base64.StdEncoding.EncodeToString([]byte(encryptedMessage))
+
+	// Construct the message struct
 	message := Message{
 		Sender:    sender,
 		Content:   encodedMessage,
@@ -171,7 +174,7 @@ func sendMessage(conn *websocket.Conn, sender, recipient, content string) {
 		Type:      "message",
 	}
 
-	// Send the encrypted and encoded message
+	// Send the message to the server
 	err = conn.WriteJSON(message)
 	if err != nil {
 		fmt.Println("Error sending message:", err)
@@ -192,9 +195,10 @@ func requestPublicKey(conn *websocket.Conn, sender, recipient string) {
 	}
 }
 
-// handlePublicKeyResponse handles the response containing the public key of another client
+// handlePublicKeyResponse processes a public key response message from the server
 func handlePublicKeyResponse(msg Message) {
 	keyMutex.Lock()
+	// Store the received public key in the map
 	otherPublicKeys[msg.Sender] = msg.PublicKey
 	keyMutex.Unlock()
 	fmt.Printf("Received and stored public key from %s: %s\n", msg.Sender, msg.PublicKey)
